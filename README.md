@@ -71,11 +71,11 @@ Para asegurar la calidad del código, el equipo trabaja bajo reglas estrictas:
 
 Este proyecto es el resultado del esfuerzo colaborativo de:
 
-* **Anderson B. Urrutia Moreyra** (Team Lead / API Controller)
-* **Mirko Coronel** (Model Layer)
-* **Juan Pablo Ortiz** (Repository Layer)
-* **Angelo Quispe** (Service Layer)
-* **Karim Romero** (Design Patterns)
+* **Anderson B. Urrutia Moreyra** (Design Patterns)
+* **Gonzalo Gerardo Correa Arenas**
+* **Daniel Ricardo Canchanya Astuñaupa**
+* **Joshua Samir Rioja Oroncoy**
+* **Cristhian Manual Castro Quiñones**
 
 ---
 
