@@ -1,7 +1,3 @@
-Aquí tienes una propuesta de `README.md` profesional, exhaustiva y diseñada para reflejar el rigor académico y técnico de tu proyecto de Ingeniería de Sistemas (6to Ciclo).
-
-Puedes copiar este contenido directamente a tu archivo `README.md` en GitHub.
-
 ---
 
 # 💊 Botica Estrella - API REST Backend
