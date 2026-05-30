@@ -25,40 +25,44 @@ public interface VentaRepository extends JpaRepository<Venta, Integer> {
                    "INNER JOIN clientes c ON v.id_cliente = c.id_cliente " +
                    "INNER JOIN productos p ON v.id_producto = p.id_producto " +
                    "ORDER BY v.fecha_venta DESC", nativeQuery = true)
-    List<Object[]> listarVentasConNombres(); // Cambiado a Object[]
+    List<Object[]> listarVentasConNombres(); 
 
     /* =========================================================================
-       📊 SECCIÓN DE CONSULTAS PARA REPORTES (Mencionadas anteriormente)
+       📊 SECCIÓN DE CONSULTAS PARA REPORTES 
        ========================================================================= */
 
-    /**
-     * Reporte: Total de ingresos generados por ventas completadas.
-     * Ideal para el Dashboard o panel de control principal de la botica.
-     */
     @Query(value = "SELECT COALESCE(SUM(total), 0) FROM ventas WHERE estado = 'COMPLETADA'", nativeQuery = true)
     double obtenerTotalIngresos();
 
-    /**
-     * Reporte: Conteo de ventas realizadas por un método de pago específico (Efectivo, Tarjeta, Yape/Plin).
-     */
     @Query(value = "SELECT COUNT(*) FROM ventas WHERE metodo_pago = :metodo AND estado = 'COMPLETADA'", nativeQuery = true)
     long contarVentasPorMetodoPago(@Param("metodo") String metodo);
 
     /**
-     * Reporte: Top productos más vendidos de la botica Estrella.
-     * Devuelve una lista de arreglos de objetos, útil para mapear un gráfico de barras.
+     * Reporte: Top productos más vendidos incluyendo su categoría.
      */
-
-    @Query(value = "SELECT p.nombre, COUNT(v.id_producto) AS cantidad " +
+    @Query(value = "SELECT p.nombre AS producto, COUNT(v.id_producto) AS cantidad, c.nombre AS categoria " +
                    "FROM ventas v " +
                    "INNER JOIN productos p ON v.id_producto = p.id_producto " +
+                   "LEFT JOIN categorias c ON p.id_categoria = c.id_categoria " +
                    "WHERE v.estado = 'COMPLETADA' " +
-                   "GROUP BY v.id_producto " +
+                   "GROUP BY v.id_producto, p.nombre, c.nombre " +
                    "ORDER BY cantidad DESC", nativeQuery = true)
-    List<Object[]> obtenerProductosMasVendidos(Pageable pageable);
+    List<Object[]> obtenerTopProductosConCategoria(Pageable pageable);
 
-    // Cuenta SOLO las ventas que no han sido anuladas
     @Query(value = "SELECT COUNT(*) FROM ventas WHERE estado = 'COMPLETADA'", nativeQuery = true)
     int contarVentasCompletadas();
 
+    /* =========================================================================
+       🛒 SECCIÓN E-COMMERCE (NUEVO)
+       ========================================================================= */
+
+    /**
+     * Historial exclusivo para el cliente logueado en la tienda web.
+     */
+    @Query(value = "SELECT v.nro_comprobante, v.fecha_venta, v.metodo_pago, v.total, v.estado, p.nombre AS nombre_producto " +
+                   "FROM ventas v " +
+                   "INNER JOIN productos p ON v.id_producto = p.id_producto " +
+                   "WHERE v.id_usuario = :idUsuario " +
+                   "ORDER BY v.fecha_venta DESC", nativeQuery = true)
+    List<Object[]> listarMisComprasRealizadas(@Param("idUsuario") int idUsuario);
 }

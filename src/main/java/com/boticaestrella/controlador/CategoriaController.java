@@ -1,48 +1,62 @@
 package com.boticaestrella.controlador;
 
-import com.boticaestrella.modelo.Categoria;
-import com.boticaestrella.repository.CategoriaRepository;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
-@RestController // Indica que esta clase es una API REST (devuelve JSON)
-@RequestMapping("/api/v1/categorias") // Ruta base para todos los endpoints
-@CrossOrigin(origins = "*") // Permite que un frontend (React, Angular, etc.) se conecte sin bloqueos
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.boticaestrella.modelo.Categoria;
+import com.boticaestrella.repository.CategoriaRepository;
+
+@RestController
+@RequestMapping("/api/v1/categorias")
+@CrossOrigin(origins = "*")
 public class CategoriaController {
 
     private final CategoriaRepository categoriaRepository;
 
-    // Inyectamos el repositorio que creamos en la Fase 3
     public CategoriaController(CategoriaRepository categoriaRepository) {
         this.categoriaRepository = categoriaRepository;
     }
 
-    // Endpoint: GET /api/v1/categorias
+    // GET /api/v1/categorias
     @GetMapping
     public ResponseEntity<List<Categoria>> listarCategorias() {
-        List<Categoria> lista = categoriaRepository.findAll();
-        return ResponseEntity.ok(lista); // Devuelve HTTP 200 OK
+        return ResponseEntity.ok(categoriaRepository.findAll());
     }
 
-    // Endpoint: POST /api/v1/categorias
+    // POST /api/v1/categorias
     @PostMapping
-    public ResponseEntity<Categoria> guardarCategoria(@RequestBody Categoria categoria) {
-        // @RequestBody toma el JSON del cliente y lo convierte en el objeto Categoria
-        Categoria nuevaCategoria = categoriaRepository.save(categoria);
-        return new ResponseEntity<>(nuevaCategoria, HttpStatus.CREATED); // Devuelve HTTP 201 Created
+    public ResponseEntity<?> guardarCategoria(@RequestBody Categoria categoria) {
+        try {
+            return new ResponseEntity<>(categoriaRepository.save(categoria), HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error al guardar: " + e.getMessage());
+        }
     }
 
-    // Endpoint: DELETE /api/v1/categorias/{id}
+    // DELETE /api/v1/categorias/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarCategoria(@PathVariable int id) {
-        // @PathVariable extrae el número de la URL
-        if (categoriaRepository.existsById(id)) {
-            categoriaRepository.deleteById(id);
-            return ResponseEntity.noContent().build(); // HTTP 204 No Content
+    public ResponseEntity<?> eliminarCategoria(@PathVariable int id) {
+        try {
+            if (categoriaRepository.existsById(id)) {
+                categoriaRepository.deleteById(id);
+                return ResponseEntity.ok("Eliminado");
+            }
+            return ResponseEntity.notFound().build();
+        } catch (DataIntegrityViolationException e) {
+            // 🔥 Esto atrapa el error de la base de datos y da un mensaje claro
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                   .body("No se puede eliminar: Esta categoría tiene productos asociados. Primero reasigna o elimina los productos.");
         }
-        return ResponseEntity.notFound().build(); // HTTP 404 Not Found
     }
 }

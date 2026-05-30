@@ -53,4 +53,11 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
     @Query(value = "SELECT COUNT(*) FROM productos WHERE stock_actual <= stock_minimo", nativeQuery = true)
     int contarStockCritico();
 
+    // 🔥 NUEVO: Suma el stock agrupado por el nombre de la categoría
+    @Query(value = "SELECT c.nombre, SUM(p.stock_actual) " +
+                   "FROM productos p " +
+                   "INNER JOIN categorias c ON p.id_categoria = c.id_categoria " +
+                   "GROUP BY c.id_categoria, c.nombre", nativeQuery = true)
+    List<Object[]> obtenerStockPorCategoria();
+
 }

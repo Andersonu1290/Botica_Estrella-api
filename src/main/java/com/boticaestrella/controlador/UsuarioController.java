@@ -67,4 +67,36 @@ public class UsuarioController {
                     .body(Map.of("error", "Ocurrió un error al procesar el registro: " + e.getMessage()));
         }
     }
+
+    /**
+     * Endpoint: POST /api/v1/usuarios/registro-tienda
+     * Registro público y exclusivo para compradores del e-commerce.
+     * Fuerza el rol 'CLIENTE' internamente para evitar escalada de privilegios.
+     */
+    @PostMapping("/registro-tienda")
+    public ResponseEntity<?> registrarClienteDesdeTienda(@RequestBody Usuario nuevoUsuario) {
+        try {
+            if (nuevoUsuario.getUsername() == null || nuevoUsuario.getPassword() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "El usuario y la contraseña son obligatorios."));
+            }
+
+            // Forzamos el rol de cliente, ignorando cualquier cosa que envíe el frontend
+            nuevoUsuario.setRol("CLIENTE");
+
+            boolean registrado = servicioUsuario.registrarNuevoPersonal(nuevoUsuario);
+
+            if (registrado) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                        .body(Map.of("mensaje", "Tu cuenta de cliente ha sido creada exitosamente."));
+            } else {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("error", "El nombre de usuario '" + nuevoUsuario.getUsername() + "' ya existe."));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Error al procesar el registro: " + e.getMessage()));
+        }
+    }
 }

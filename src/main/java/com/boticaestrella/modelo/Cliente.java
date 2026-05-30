@@ -1,11 +1,12 @@
 package com.boticaestrella.modelo;
 
-import jakarta.persistence.Column;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "clientes")
@@ -25,42 +26,45 @@ public class Cliente {
     @Column(name = "correo", length = 100)
     private String correo;
 
+    // Constructor vacío obligatorio para JPA
     public Cliente() {}
 
+    // Constructor personalizado que ya tenías
     public Cliente(String documentoIdentidad, String nombreCompleto) {
         this.documentoIdentidad = documentoIdentidad;
         this.nombreCompleto = nombreCompleto;
     }
 
-    public int getIdCliente() {
-        return idCliente;
+    // Getters y Setters
+    public int getIdCliente() { 
+        return idCliente; 
+    }
+    
+    public void setIdCliente(int idCliente) { 
+        return; // JPA se encarga de asignar el ID autoincremental
     }
 
-    public void setIdCliente(int idCliente) {
-        return;
+    public String getDocumentoIdentidad() { 
+        return documentoIdentidad; 
+    }
+    
+    public void setDocumentoIdentidad(String documentoIdentidad) { 
+        this.documentoIdentidad = documentoIdentidad; 
     }
 
-    public String getDocumentoIdentidad() {
-        return documentoIdentidad;
+    public String getNombreCompleto() { 
+        return nombreCompleto; 
+    }
+    
+    public void setNombreCompleto(String nombreCompleto) { 
+        this.nombreCompleto = nombreCompleto; 
     }
 
-    public void setDocumentoIdentidad(String documentoIdentidad) {
-        this.documentoIdentidad = documentoIdentidad;
+    public String getCorreo() { 
+        return correo; 
     }
-
-    public String getNombreCompleto() {
-        return nombreCompleto;
-    }
-
-    public void setNombreCompleto(String nombreCompleto) {
-        this.nombreCompleto = nombreCompleto;
-    }
-
-    public String getCorreo() {
-        return correo;
-    }
-
-    public void setCorreo(String correo) {
-        this.correo = correo;
+    
+    public void setCorreo(String correo) { 
+        this.correo = correo; 
     }
 }

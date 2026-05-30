@@ -1,15 +1,22 @@
 package com.boticaestrella.controlador;
 
-import com.boticaestrella.modelo.Venta;
-import com.boticaestrella.servicio.ServicioVenta;
-import com.boticaestrella.dto.VentaRequestDTO;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
+import com.boticaestrella.dto.VentaRequestDTO;
+import com.boticaestrella.modelo.Venta;
+import com.boticaestrella.servicio.ServicioVenta;
 
 @RestController
 @RequestMapping("/api/v1/ventas")
@@ -23,7 +30,7 @@ public class VentaController {
     }
 
     /**
-     * HISTORIAL DE VENTAS
+     * HISTORIAL DE VENTAS (Mantenido para el Administrador)
      */
     @GetMapping("/historial")
     public ResponseEntity<List<Venta>> obtenerHistorial() {
@@ -31,16 +38,24 @@ public class VentaController {
     }
 
     /**
+     * 🔥 NUEVO: HISTORIAL EXCLUSIVO DEL CLIENTE LOGUEADO (Para el perfil Vue)
+     */
+    @GetMapping("/mis-compras/{idUsuario}")
+    public ResponseEntity<List<Map<String, Object>>> obtenerMisCompras(@PathVariable int idUsuario) {
+        return ResponseEntity.ok(servicioVenta.obtenerHistorialCliente(idUsuario));
+    }
+
+    /**
      * PROCESAR VENTA
      */
     @PostMapping
     public ResponseEntity<?> procesarVenta(@RequestBody VentaRequestDTO request) {
+        // ... [Se queda exactamente como lo tenías]
         try {
-            // 🔥 AHORA RECIBE EL MAP (JSON) EXACTO DESDE EL SERVICIO
             Map<String, Object> resultado = servicioVenta.procesarSalidaProducto(
                     request.idProducto(),
                     request.nroSerie(),
-                    request.tipoComprobante(), // Pasamos si es boleta o factura
+                    request.tipoComprobante(),
                     request.idUsuario(),
                     request.docCliente(),
                     request.nombreCliente(),
@@ -48,10 +63,7 @@ public class VentaController {
                     request.metodoPago(),
                     request.total()
             );
-
-            // 🔥 DEVUELVE EL MAP CON TODOS LOS MENSAJES DE TUS PATRONES
             return new ResponseEntity<>(resultado, HttpStatus.CREATED);
-
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
@@ -67,13 +79,12 @@ public class VentaController {
             @PathVariable int idVenta,
             @RequestParam int idUsuario
     ) {
+        // ... [Se queda exactamente como lo tenías]
         try {
             servicioVenta.anularVenta(idVenta, idUsuario);
-
             return ResponseEntity.ok(
                     Map.of("mensaje", "Venta anulada y stock reintegrado correctamente.")
             );
-
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)

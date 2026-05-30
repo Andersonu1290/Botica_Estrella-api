@@ -1,11 +1,11 @@
 package com.boticaestrella.modelo;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.Column;
 import jakarta.persistence.Transient;
 
 @Entity
@@ -25,60 +25,63 @@ public class Series {
 
     @Column(name = "estado", length = 50, nullable = false)
     private String estado;
-
+    
+    // Campos "extra" para reportes, omitidos en la tabla física de la BD
     @Transient
     private String nombreProducto;
-
+    
     @Transient
     private String codigoSKU;
 
+    // Constructor vacío obligatorio para JPA
     public Series() {}
 
-    public int getIdSerie() {
-        return idSerie;
+    // Getters y Setters
+    public int getIdSerie() { 
+        return idSerie; 
+    }
+    
+    public void setIdSerie(int idSerie) { 
+        this.idSerie = idSerie; 
     }
 
-    public void setIdSerie(int idSerie) {
-        this.idSerie = idSerie;
+    public String getNumeroSerie() { 
+        return numeroSerie; 
+    }
+    
+    public void setNumeroSerie(String numeroSerie) { 
+        this.numeroSerie = numeroSerie; 
     }
 
-    public String getNumeroSerie() {
-        return numeroSerie;
+    public int getIdProducto() { 
+        return idProducto; 
+    }
+    
+    public void setIdProducto(int idProducto) { 
+        this.idProducto = idProducto; 
     }
 
-    public void setNumeroSerie(String numeroSerie) {
-        this.numeroSerie = numeroSerie;
+    public String getEstado() { 
+        return estado; 
+    }
+    
+    public void setEstado(String estado) { 
+        this.estado = estado; 
     }
 
-    public int getIdProducto() {
-        return idProducto;
+    public String getNombreProducto() { 
+        return nombreProducto; 
+    }
+    
+    public void setNombreProducto(String nombreProducto) { 
+        this.nombreProducto = nombreProducto; 
     }
 
-    public void setIdProducto(int idProducto) {
-        this.idProducto = idProducto;
+    public String getCodigoSKU() { 
+        return codigoSKU; 
     }
-
-    public String getEstado() {
-        return estado;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
-
-    public String getNombreProducto() {
-        return nombreProducto;
-    }
-
-    public void setNombreProducto(String nombreProducto) {
-        this.nombreProducto = nombreProducto;
-    }
-
-    public String getCodigoSKU() {
-        return codigoSKU;
-    }
-
-    public void setCodigoSKU(String codigoSKU) {
-        this.codigoSKU = codigoSKU;
+    
+    public void setCodigoSKU(String codigoSKU) { 
+        this.codigoSKU = codigoSKU; 
     }
 }

@@ -1,15 +1,16 @@
 package com.boticaestrella.servicio;
 
-import com.boticaestrella.repository.ProductoRepository;
-import com.boticaestrella.repository.VentaRepository;
-import com.boticaestrella.repository.SeriesRepository;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.boticaestrella.repository.ProductoRepository;
+import com.boticaestrella.repository.SeriesRepository;
+import com.boticaestrella.repository.VentaRepository;
 
 @Service
 public class ServicioReporte implements IGeneraReporte {
@@ -64,24 +65,34 @@ public class ServicioReporte implements IGeneraReporte {
      * para evitar alertas de sintaxis nativa SQL en editores como VS Code.
      */
     public String[] obtenerTopProductos() { 
-        // Limitamos la consulta a los 5 productos más vendidos de forma segura
         Pageable topFive = PageRequest.of(0, 5);
-        List<Object[]> resultados = ventaRepository.obtenerProductosMasVendidos(topFive);
+        List<Object[]> resultados = ventaRepository.obtenerTopProductosConCategoria(topFive);
         
         String[] topProductos = new String[resultados.size()];
         for (int i = 0; i < resultados.size(); i++) {
             Object[] fila = resultados.get(i);
-            // Convierte el nombre del producto y su conteo en un string legible
-            topProductos[i] = fila[0] + " (Vendidos: " + fila[1] + ")";
+            String producto = (String) fila[0];
+            Number ventas = (Number) fila[1];
+            String categoria = fila[2] != null ? (String) fila[2] : "Sin Categoría";
+            
+            // Formato: "Producto||Ventas||Categoria"
+            topProductos[i] = producto + "||" + ventas + "||" + categoria;
         }
         return topProductos;
     }
 
-    /**
-     * Mapeo auxiliar de stock consolidado por categorías de la botica
-     */
     public String[] obtenerStockCategoria() { 
-        // Aquí puedes invocar una consulta mapeada o un flujo de datos consolidado similar
-        return new String[]{"Medicamentos: 120", "Cuidado Personal: 45", "Material Médico: 15"}; 
+        List<Object[]> resultados = productoRepository.obtenerStockPorCategoria();
+        
+        String[] stockPorCategoria = new String[resultados.size()];
+        for (int i = 0; i < resultados.size(); i++) {
+            Object[] fila = resultados.get(i);
+            String categoria = (String) fila[0];
+            Number stock = fila[1] != null ? (Number) fila[1] : 0; 
+            
+            // Formato: "Categoria||Stock"
+            stockPorCategoria[i] = categoria + "||" + stock;
+        }
+        return stockPorCategoria; 
     }
 }

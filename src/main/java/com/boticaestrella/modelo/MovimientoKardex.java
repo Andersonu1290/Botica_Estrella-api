@@ -1,14 +1,13 @@
 package com.boticaestrella.modelo;
 
-import java.sql.Timestamp;
-
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.Column;
 import jakarta.persistence.Transient;
+import java.sql.Timestamp;
 
 @Entity
 @Table(name = "kardex_movimientos")
@@ -37,83 +36,86 @@ public class MovimientoKardex {
     @Column(name = "id_usuario", nullable = false)
     private int idUsuario;
 
+    // Campos "extra" ignorados por JPA para reportes y respuestas de la API
     @Transient
     private String nombreProducto;
 
     @Transient
-    private String nombreUsuario;
+    private String nombreUsuario;    
 
+    // Constructor vacío obligatorio para JPA
     public MovimientoKardex() {}
 
-    public int getIdMovimiento() {
-        return idMovimiento;
+    // Getters y Setters
+    public int getIdMovimiento() { 
+        return idMovimiento; 
+    }
+    
+    public void setIdMovimiento(int idMovimiento) { 
+        this.idMovimiento = idMovimiento; 
     }
 
-    public void setIdMovimiento(int idMovimiento) {
-        this.idMovimiento = idMovimiento;
+    public int getIdProducto() { 
+        return idProducto; 
+    }
+    
+    public void setIdProducto(int idProducto) { 
+        this.idProducto = idProducto; 
     }
 
-    public int getIdProducto() {
-        return idProducto;
+    public String getTipoMovimiento() { 
+        return tipoMovimiento; 
+    }
+    
+    public void setTipoMovimiento(String tipoMovimiento) { 
+        this.tipoMovimiento = tipoMovimiento; 
     }
 
-    public void setIdProducto(int idProducto) {
-        this.idProducto = idProducto;
+    public int getCantidad() { 
+        return cantidad; 
+    }
+    
+    public void setCantidad(int cantidad) { 
+        this.cantidad = cantidad; 
     }
 
-    public String getTipoMovimiento() {
-        return tipoMovimiento;
+    public Timestamp getFecha() { 
+        return fecha; 
+    }
+    
+    public void setFecha(Timestamp fecha) { 
+        this.fecha = fecha; 
     }
 
-    public void setTipoMovimiento(String tipoMovimiento) {
-        this.tipoMovimiento = tipoMovimiento;
+    public String getMotivo() { 
+        return motivo; 
+    }
+    
+    public void setMotivo(String motivo) { 
+        this.motivo = motivo; 
     }
 
-    public int getCantidad() {
-        return cantidad;
+    public int getIdUsuario() { 
+        return idUsuario; 
+    }
+    
+    public void setIdUsuario(int idUsuario) { 
+        this.idUsuario = idUsuario; 
+    }
+    
+    public String getNombreProducto() { 
+        return nombreProducto; 
+    }
+    
+    public void setNombreProducto(String nombreProducto) { 
+        this.nombreProducto = nombreProducto; 
     }
 
-    public void setCantidad(int cantidad) {
-        this.cantidad = cantidad;
+    public String getNombreUsuario() { 
+        return nombreUsuario; 
     }
-
-    public Timestamp getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(Timestamp fecha) {
-        this.fecha = fecha;
-    }
-
-    public String getMotivo() {
-        return motivo;
-    }
-
-    public void setMotivo(String motivo) {
-        this.motivo = motivo;
-    }
-
-    public int getIdUsuario() {
-        return idUsuario;
-    }
-
-    public void setIdUsuario(int idUsuario) {
-        this.idUsuario = idUsuario;
-    }
-
-    public String getNombreProducto() {
-        return nombreProducto;
-    }
-
-    public void setNombreProducto(String nombreProducto) {
-        this.nombreProducto = nombreProducto;
-    }
-
-    public String getNombreUsuario() {
-        return nombreUsuario;
-    }
-
-    public void setNombreUsuario(String nombreUsuario) {
-        this.nombreUsuario = nombreUsuario;
+    
+    public void setNombreUsuario(String nombreUsuario) { 
+        this.nombreUsuario = nombreUsuario; 
     }
 }
