@@ -126,12 +126,23 @@ public class ProductoController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminarProducto(@PathVariable int id) {
-        boolean eliminado = servicioProducto.eliminarProducto(id);
-        if (eliminado) {
-            return ResponseEntity.ok(Map.of("mensaje", "Producto eliminado correctamente de los registros."));
+        try {
+            boolean eliminado = servicioProducto.eliminarProducto(id);
+            if (eliminado) {
+                return ResponseEntity.ok(Map.of("mensaje", "Producto eliminado correctamente de los registros."));
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No se pudo eliminar. El producto no existe."));
+                    
+        } catch (DataIntegrityViolationException e) {
+            // Atrapamos específicamente el bloqueo por Llaves Foráneas de la BD
+            return ResponseEntity.status(HttpStatus.CONFLICT) // Retorna un HTTP 409
+                    .body(Map.of("error", "No se puede eliminar: El producto tiene stock y series vinculadas en el inventario."));
+        } catch (Exception e) {
+            // Cualquier otro error general
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error interno al intentar eliminar el producto."));
         }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "No se pudo eliminar. El producto no existe."));
     }
 
 }
