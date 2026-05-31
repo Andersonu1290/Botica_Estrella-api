@@ -2,7 +2,7 @@
 
 # 💊 Botica Estrella - API REST Backend
 
-Este repositorio contiene la arquitectura backend del **Sistema Integrado de Gestión de Inventarios y Ventas** para la "Botica Estrella". Desarrollado como proyecto central para el 6to ciclo de la carrera de Ingeniería de Sistemas en la Universidad Tecnológica del Perú (UTP).
+Este repositorio contiene la arquitectura backend del **Sistema Integrado de Gestión de Inventarios y Ventas** para la "Botica Estrella". Desarrollado como proyecto central para el 7to ciclo de la carrera de Ingeniería de Sistemas en la Universidad Tecnológica del Perú (UTP).
 
 El sistema ha sido construido bajo una arquitectura en capas, priorizando la mantenibilidad, la escalabilidad y la aplicación de patrones de diseño de software para optimizar las operaciones de una botica moderna.
 
