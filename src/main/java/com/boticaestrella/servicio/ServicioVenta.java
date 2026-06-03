@@ -96,24 +96,23 @@ public class ServicioVenta {
     }
 
     public List<Map<String, Object>> obtenerHistorialCliente(int idUsuario) {
-        List<Object[]> resultados = ventaRepository.listarMisComprasRealizadas(idUsuario);
-        
+    
+        List<Object[]> resultados =
+                ventaRepository.listarMisComprasRealizadas(idUsuario);
+    
+        System.out.println("ID Usuario recibido: " + idUsuario);
+        System.out.println("Compras encontradas: " + resultados.size());
+    
         return resultados.stream().map(r -> {
             Map<String, Object> map = new HashMap<>();
+        
             map.put("ticket", r[0]);
-            
-            // Aseguramos el formato de la fecha si viene como Timestamp o Date
-            Object fechaObjeto = r[1];
-            if (fechaObjeto != null) {
-                map.put("fecha", fechaObjeto.toString());
-            } else {
-                map.put("fecha", "");
-            }
-            
+            map.put("fecha", r[1] != null ? r[1].toString() : "");
             map.put("metodoPago", r[2]);
             map.put("total", r[3]);
             map.put("estado", r[4]);
             map.put("producto", r[5]);
+        
             return map;
         }).toList();
     }
