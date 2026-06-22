@@ -2,6 +2,7 @@ package com.boticaestrella.controlador;
 
 import com.boticaestrella.modelo.Usuario;
 import com.boticaestrella.servicio.ServicioUsuario;
+import com.boticaestrella.config.JwtUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +15,12 @@ import java.util.Map;
 public class LoginController {
 
     private final ServicioUsuario servicioUsuario;
+    private final JwtUtil jwtUtil;
 
     // Inyección de dependencias por constructor
-    public LoginController(ServicioUsuario servicioUsuario) {
+    public LoginController(ServicioUsuario servicioUsuario, JwtUtil jwtUtil) {
         this.servicioUsuario = servicioUsuario;
+        this.jwtUtil = jwtUtil;
     }
 
     /**
@@ -42,9 +45,15 @@ public class LoginController {
         if (usuario != null) {
             // Limpieza de seguridad: evitamos enviar el hash del password de vuelta al cliente
             usuario.setPassword(null);
-            
-            // Devolvemos el usuario autenticado junto con un estado 200 OK
-            return ResponseEntity.ok(usuario);
+
+            // Generar token JWT con expiración y rol
+            String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getRol());
+
+            // Devolver token y datos del usuario (sin password)
+            return ResponseEntity.ok(Map.of(
+                    "token", token,
+                    "usuario", usuario
+            ));
         } else {
             // Si las credenciales fallan, respondemos con un error HTTP 401 Unauthorized
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -13,4 +13,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     
     // Por si necesitas buscar si un usuario ya existe al registrar
     boolean existsByUsername(String username);
+
+    // Búsqueda por username sin exponer el password (para autenticación con BCrypt/JWT)
+    Optional<Usuario> findByUsername(String username);
 }
