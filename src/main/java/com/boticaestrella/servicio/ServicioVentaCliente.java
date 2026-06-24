@@ -24,6 +24,8 @@ import com.boticaestrella.repository.DetalleVentaClienteRepository;
 import com.boticaestrella.repository.KardexRepository;
 import com.boticaestrella.repository.ProductoRepository;
 import com.boticaestrella.repository.VentaClienteRepository;
+// 🔥 Importamos el repositorio de las Series
+import com.boticaestrella.repository.SeriesRepository;
 
 @Service
 public class ServicioVentaCliente {
@@ -31,21 +33,24 @@ public class ServicioVentaCliente {
     private final VentaClienteRepository ventaClienteRepository;
     private final DetalleVentaClienteRepository detalleVentaClienteRepository;
     private final ProductoRepository productoRepository;
-    
-    // 🌟 NUEVAS DEPENDENCIAS PARA EL KARDEX Y STOCK
+       // 🌟 NUEVAS DEPENDENCIAS PARA EL KARDEX Y STOCK
     private final KardexRepository kardexRepository;
     private final GestorStock gestorStock;
+    // 🔥 Inyectamos el repositorio de las Series
+    private final SeriesRepository seriesRepository;
 
     public ServicioVentaCliente(VentaClienteRepository ventaClienteRepository,
                                  DetalleVentaClienteRepository detalleVentaClienteRepository,
                                  ProductoRepository productoRepository,
                                  KardexRepository kardexRepository,
-                                 GestorStock gestorStock) {
+                                 GestorStock gestorStock,
+                                 SeriesRepository seriesRepository) { // 🔥 Añadido al constructor
         this.ventaClienteRepository = ventaClienteRepository;
         this.detalleVentaClienteRepository = detalleVentaClienteRepository;
         this.productoRepository = productoRepository;
         this.kardexRepository = kardexRepository;
         this.gestorStock = gestorStock;
+        this.seriesRepository = seriesRepository;
     }
 
     /**
@@ -69,22 +74,10 @@ public class ServicioVentaCliente {
             String nroPedido = generarNumeroPedido();
 
             VentaCliente ventaCliente = new VentaCliente(
-                    request.idUsuario(),
-                    nroPedido,
-                    "PENDIENTE",
-                    LocalDateTime.now(),
-                    subtotal,
-                    costoEnvio,
-                    total,
-                    request.dniCliente(),
-                    request.nombreCliente(),
-                    request.emailCliente(),
-                    request.telefonoCliente(),
-                    request.direccionEnvio(),
-                    request.ciudad(),
-                    request.departamento(),
-                    request.tipoEnvio(),
-                    request.tipoPago()
+                    request.idUsuario(), nroPedido, "PENDIENTE", LocalDateTime.now(),
+                    subtotal, costoEnvio, total, request.dniCliente(), request.nombreCliente(),
+                    request.emailCliente(), request.telefonoCliente(), request.direccionEnvio(),
+                    request.ciudad(), request.departamento(), request.tipoEnvio(), request.tipoPago()
             );
 
             ventaCliente.setApellidoCliente(request.apellidoCliente());
@@ -103,15 +96,12 @@ public class ServicioVentaCliente {
             List<DetalleVentaClienteDTO> detallesDTO = new ArrayList<>();
             for (ItemCarritoDTO item : request.items()) {
                 DetalleVentaCliente detalle = new DetalleVentaCliente(
-                        ventaGuardada.getIdVentaCliente(),
-                        item.idProducto(),
-                        item.cantidad(),
-                        item.precioUnitario(),
-                        item.precioUnitario() * item.cantidad()
+                        ventaGuardada.getIdVentaCliente(), item.idProducto(), item.cantidad(),
+                        item.precioUnitario(), item.precioUnitario() * item.cantidad()
                 );
                 DetalleVentaCliente detalleGuardado = detalleVentaClienteRepository.save(detalle);
 
-                // 🌟 1. BUSCAMOS EL PRODUCTO Y ACTUALIZAMOS SU STOCK FÍSICO
+                // 🌟 1. BUSCAMOS EL PRODUCTO Y ACTUALIZAMOS SU STOCK GENERAL
                 Producto producto = productoRepository.findById(item.idProducto())
                         .orElseThrow(() -> new Exception("Producto no encontrado en BD"));
 
@@ -121,6 +111,22 @@ public class ServicioVentaCliente {
 
                 producto.setStockActual(producto.getStockActual() - item.cantidad());
                 productoRepository.save(producto);
+
+                // 🌟 NUEVO: ACTUALIZAMOS LA TABLA SERIES (Para que no haya desfase con el admin)
+                List<com.boticaestrella.modelo.Series> seriesDisponibles = seriesRepository.findByIdProductoAndEstado(producto.getIdProducto(), "DISPONIBLE");
+                
+                if (seriesDisponibles.size() < item.cantidad()) {
+                    throw new Exception("Desfase de stock físico: No hay suficientes series DISPONIBLES para " + producto.getNombre());
+                }
+
+                List<com.boticaestrella.modelo.Series> seriesAAsignar = new ArrayList<>();
+                for (int i = 0; i < item.cantidad(); i++) {
+                    com.boticaestrella.modelo.Series s = seriesDisponibles.get(i);
+                    s.setEstado("ASIGNADO"); // Lo apartamos de la tienda física
+                    seriesAAsignar.add(s);
+                }
+                seriesRepository.saveAll(seriesAAsignar); // Guardamos el cambio de estado masivo
+                // -------------------------------------------------------------
 
                 // 🌟 2. REGISTRAMOS EL MOVIMIENTO EN EL KARDEX
                 MovimientoKardex kardex = new MovimientoKardex();
@@ -138,35 +144,18 @@ public class ServicioVentaCliente {
                 }
 
                 detallesDTO.add(new DetalleVentaClienteDTO(
-                        detalleGuardado.getIdDetalle(),
-                        item.idProducto(),
-                        producto.getNombre(),
-                        item.cantidad(),
-                        item.precioUnitario(),
-                        detalleGuardado.getSubtotal(),
-                        0.0
+                        detalleGuardado.getIdDetalle(), item.idProducto(), producto.getNombre(),
+                        item.cantidad(), item.precioUnitario(), detalleGuardado.getSubtotal(), 0.0
                 ));
             }
 
             PedidoClienteResponseDTO response = new PedidoClienteResponseDTO(
-                    ventaGuardada.getIdVentaCliente(),
-                    ventaGuardada.getNroPedido(),
-                    ventaGuardada.getEstado(),
-                    ventaGuardada.getFechaPedido(),
-                    ventaGuardada.getFechaEntregaEstimada(),
-                    ventaGuardada.getSubtotal(),
-                    ventaGuardada.getCostoEnvio(),
-                    ventaGuardada.getTotal(),
-                    ventaGuardada.getNombreCliente(),
-                    ventaGuardada.getEmailCliente(),
-                    ventaGuardada.getTelefonoCliente(),
-                    ventaGuardada.getDireccionEnvio(),
-                    ventaGuardada.getCiudad(),
-                    ventaGuardada.getDepartamento(),
-                    ventaGuardada.getTipoEnvio(),
-                    ventaGuardada.getNumeroSeguimiento(),
-                    ventaGuardada.getTipoPago(),
-                    ventaGuardada.getTipoTarjeta(),
+                    ventaGuardada.getIdVentaCliente(), ventaGuardada.getNroPedido(), ventaGuardada.getEstado(),
+                    ventaGuardada.getFechaPedido(), ventaGuardada.getFechaEntregaEstimada(), ventaGuardada.getSubtotal(),
+                    ventaGuardada.getCostoEnvio(), ventaGuardada.getTotal(), ventaGuardada.getNombreCliente(),
+                    ventaGuardada.getEmailCliente(), ventaGuardada.getTelefonoCliente(), ventaGuardada.getDireccionEnvio(),
+                    ventaGuardada.getCiudad(), ventaGuardada.getDepartamento(), ventaGuardada.getTipoEnvio(),
+                    ventaGuardada.getNumeroSeguimiento(), ventaGuardada.getTipoPago(), ventaGuardada.getTipoTarjeta(),
                     ventaGuardada.getUltimos4Digitos()
             );
             response.setDetalles(detallesDTO);
@@ -191,35 +180,18 @@ public class ServicioVentaCliente {
             Optional<Producto> producto = productoRepository.findById(d.getIdProducto());
             String nombreProducto = producto.map(Producto::getNombre).orElse("Producto");
             return new DetalleVentaClienteDTO(
-                    d.getIdDetalle(),
-                    d.getIdProducto(),
-                    nombreProducto,
-                    d.getCantidad(),
-                    d.getPrecioUnitario(),
-                    d.getSubtotal(),
-                    d.getDescuento()
+                    d.getIdDetalle(), d.getIdProducto(), nombreProducto, d.getCantidad(),
+                    d.getPrecioUnitario(), d.getSubtotal(), d.getDescuento()
             );
         }).collect(Collectors.toList());
 
         PedidoClienteResponseDTO response = new PedidoClienteResponseDTO(
-                venta.getIdVentaCliente(),
-                venta.getNroPedido(),
-                venta.getEstado(),
-                venta.getFechaPedido(),
-                venta.getFechaEntregaEstimada(),
-                venta.getSubtotal(),
-                venta.getCostoEnvio(),
-                venta.getTotal(),
-                venta.getNombreCliente(),
-                venta.getEmailCliente(),
-                venta.getTelefonoCliente(),
-                venta.getDireccionEnvio(),
-                venta.getCiudad(),
-                venta.getDepartamento(),
-                venta.getTipoEnvio(),
-                venta.getNumeroSeguimiento(),
-                venta.getTipoPago(),
-                venta.getTipoTarjeta(),
+                venta.getIdVentaCliente(), venta.getNroPedido(), venta.getEstado(),
+                venta.getFechaPedido(), venta.getFechaEntregaEstimada(), venta.getSubtotal(),
+                venta.getCostoEnvio(), venta.getTotal(), venta.getNombreCliente(),
+                venta.getEmailCliente(), venta.getTelefonoCliente(), venta.getDireccionEnvio(),
+                venta.getCiudad(), venta.getDepartamento(), venta.getTipoEnvio(),
+                venta.getNumeroSeguimiento(), venta.getTipoPago(), venta.getTipoTarjeta(),
                 venta.getUltimos4Digitos()
         );
         response.setDetalles(detallesDTO);
@@ -239,35 +211,18 @@ public class ServicioVentaCliente {
                 Optional<Producto> producto = productoRepository.findById(d.getIdProducto());
                 String nombreProducto = producto.map(Producto::getNombre).orElse("Producto");
                 return new DetalleVentaClienteDTO(
-                        d.getIdDetalle(),
-                        d.getIdProducto(),
-                        nombreProducto,
-                        d.getCantidad(),
-                        d.getPrecioUnitario(),
-                        d.getSubtotal(),
-                        d.getDescuento()
+                        d.getIdDetalle(), d.getIdProducto(), nombreProducto, d.getCantidad(),
+                        d.getPrecioUnitario(), d.getSubtotal(), d.getDescuento()
                 );
             }).collect(Collectors.toList());
 
             PedidoClienteResponseDTO response = new PedidoClienteResponseDTO(
-                    venta.getIdVentaCliente(),
-                    venta.getNroPedido(),
-                    venta.getEstado(),
-                    venta.getFechaPedido(),
-                    venta.getFechaEntregaEstimada(),
-                    venta.getSubtotal(),
-                    venta.getCostoEnvio(),
-                    venta.getTotal(),
-                    venta.getNombreCliente(),
-                    venta.getEmailCliente(),
-                    venta.getTelefonoCliente(),
-                    venta.getDireccionEnvio(),
-                    venta.getCiudad(),
-                    venta.getDepartamento(),
-                    venta.getTipoEnvio(),
-                    venta.getNumeroSeguimiento(),
-                    venta.getTipoPago(),
-                    venta.getTipoTarjeta(),
+                    venta.getIdVentaCliente(), venta.getNroPedido(), venta.getEstado(),
+                    venta.getFechaPedido(), venta.getFechaEntregaEstimada(), venta.getSubtotal(),
+                    venta.getCostoEnvio(), venta.getTotal(), venta.getNombreCliente(),
+                    venta.getEmailCliente(), venta.getTelefonoCliente(), venta.getDireccionEnvio(),
+                    venta.getCiudad(), venta.getDepartamento(), venta.getTipoEnvio(),
+                    venta.getNumeroSeguimiento(), venta.getTipoPago(), venta.getTipoTarjeta(),
                     venta.getUltimos4Digitos()
             );
             response.setDetalles(detallesDTO);
@@ -314,9 +269,21 @@ public class ServicioVentaCliente {
         for (DetalleVentaCliente detalle : detalles) {
             Producto producto = productoRepository.findById(detalle.getIdProducto()).orElse(null);
             if (producto != null) {
-                // Devolvemos el stock
+                
+                // 1. Devolvemos el stock general
                 producto.setStockActual(producto.getStockActual() + detalle.getCantidad());
                 productoRepository.save(producto);
+
+                // 🌟 NUEVO: Devolvemos el estado DISPONIBLE a las cajas físicas en la tabla SERIES
+                List<com.boticaestrella.modelo.Series> seriesAsignadas = seriesRepository.findByIdProductoAndEstado(producto.getIdProducto(), "ASIGNADO");
+                List<com.boticaestrella.modelo.Series> seriesALiberar = new ArrayList<>();
+                for (int i = 0; i < detalle.getCantidad() && i < seriesAsignadas.size(); i++) {
+                    com.boticaestrella.modelo.Series s = seriesAsignadas.get(i);
+                    s.setEstado("DISPONIBLE"); // Volvemos a colocar la serie en vitrina
+                    seriesALiberar.add(s);
+                }
+                seriesRepository.saveAll(seriesALiberar);
+                // --------------------------------------------------------------------------
 
                 // Registramos el ingreso por cancelación en el Kardex
                 MovimientoKardex kardex = new MovimientoKardex();

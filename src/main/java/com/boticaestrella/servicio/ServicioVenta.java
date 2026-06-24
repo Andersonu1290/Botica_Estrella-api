@@ -276,4 +276,9 @@ public class ServicioVenta {
 
         return true;
     }
+
+    // Buscador rápido de clientes para el autocompletado en caja
+    public Cliente buscarClientePorDni(String dni) {
+        return clienteRepository.findByDocumentoIdentidad(dni).orElse(null);
+    }
 }

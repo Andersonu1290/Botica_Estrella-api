@@ -82,19 +82,31 @@ public class ServicioProducto implements IConsultaStock, IRegistroProducto {
      */
     private void generarSeriesProducto(int idProducto, String sku, int cantidad) {
         List<Series> listaSeries = new ArrayList<>();
+        
+        // 1. Averiguamos cuántas cajas de este producto ya existen históricamente en la base de datos
+        long cantidadExistente = seriesRepository.countByIdProducto(idProducto);
+
+        // 2. Creamos un "Número de Lote Fijo" (Ej: 100000 + 22 = 100022). 
+        // Así SIEMPRE será el mismo número grande para este producto en específico.
+        long loteFijo = 100000 + idProducto;
 
         for (int i = 0; i < cantidad; i++) {
             Series serie = new Series();
             serie.setIdProducto(idProducto);
             
-            String snUnico = sku + "-" + System.currentTimeMillis() + "-" + i;
-            serie.setNumeroSerie(snUnico);
-            serie.setEstado("DISPONIBLE"); 
+            // 3. El correlativo continúa desde donde se quedó.
+            // Si ya tenías 13 registradas, el siguiente será el 14, 15, 16... ¡Jamás volverá a haber un -0 repetido!
+            long correlativo = cantidadExistente + i + 1;
             
+            // Formato final: SKU - LOTE_FIJO - CORRELATIVO
+            String snUnico = sku + "-" + loteFijo + "-" + correlativo;
+            
+            serie.setNumeroSerie(snUnico);
+            serie.setEstado("DISPONIBLE");             
             listaSeries.add(serie);
         }
         
-        seriesRepository.saveAll(listaSeries); // Una sola consulta masiva a MySQL
+        seriesRepository.saveAll(listaSeries);
     }
 
     /**

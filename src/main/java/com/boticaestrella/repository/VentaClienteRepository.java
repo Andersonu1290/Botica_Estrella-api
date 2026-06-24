@@ -31,5 +31,24 @@ public interface VentaClienteRepository extends JpaRepository<VentaCliente, Inte
     // Obtener ventas pendientes de envío
     @Query("SELECT v FROM VentaCliente v WHERE v.estado IN ('PAGADO', 'PROCESANDO')")
     List<VentaCliente> findPendingShipments();
+
+    // =========================================================================
+    // 📊 CONSULTAS PARA EL DASHBOARD (E-COMMERCE)
+    // =========================================================================
+
+    @Query(value = "SELECT COALESCE(SUM(total), 0) FROM venta_cliente WHERE estado != 'CANCELADO'", nativeQuery = true)
+    double obtenerTotalIngresosWeb();
+
+    @Query(value = "SELECT COUNT(*) FROM venta_cliente WHERE estado != 'CANCELADO'", nativeQuery = true)
+    int contarVentasCompletadasWeb();
+
+    @Query(value = "SELECT p.nombre AS producto, SUM(d.cantidad) AS cantidad, c.nombre AS categoria " +
+                   "FROM detalle_venta_cliente d " +
+                   "INNER JOIN venta_cliente v ON d.id_venta_cliente = v.id_venta_cliente " +
+                   "INNER JOIN productos p ON d.id_producto = p.id_producto " +
+                   "LEFT JOIN categorias c ON p.id_categoria = c.id_categoria " +
+                   "WHERE v.estado != 'CANCELADO' " +
+                   "GROUP BY d.id_producto, p.nombre, c.nombre", nativeQuery = true)
+    List<Object[]> obtenerTopProductosWeb();
 }
 

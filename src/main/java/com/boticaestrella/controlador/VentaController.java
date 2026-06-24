@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.boticaestrella.dto.VentaRequestDTO;
 import com.boticaestrella.modelo.Venta;
 import com.boticaestrella.servicio.ServicioVenta;
+import com.boticaestrella.modelo.Cliente;
 
 @RestController
 @RequestMapping("/api/v1/ventas")
@@ -43,6 +44,18 @@ public class VentaController {
     @GetMapping("/mis-compras/{idUsuario}")
     public ResponseEntity<List<Map<String, Object>>> obtenerMisCompras(@PathVariable int idUsuario) {
         return ResponseEntity.ok(servicioVenta.obtenerHistorialCliente(idUsuario));
+    }
+
+    /**
+     * AUTOCOMPLETADO DE CLIENTES POR DNI/RUC
+     */
+    @GetMapping("/cliente/{dni}")
+    public ResponseEntity<?> buscarCliente(@PathVariable String dni) {
+        com.boticaestrella.modelo.Cliente cliente = servicioVenta.buscarClientePorDni(dni);
+        if (cliente != null) {
+            return ResponseEntity.ok(cliente);
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensaje", "Cliente nuevo"));
     }
 
     /**

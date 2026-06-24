@@ -15,11 +15,7 @@ public interface SeriesRepository extends JpaRepository<Series, Integer> {
     // Consulta simple: buscar por producto y estado
     List<Series> findByIdProductoAndEstado(int idProducto, String estado);
 
-    /**
-     * 🔥 ESTO ES LO QUE FALTA:
-     * Busca una serie específica por su número y estado actual.
-     * Spring Data JPA generará el SQL automáticamente basándose en el nombre.
-     */
+    // Busca una serie específica por su número y estado actual.
     Optional<Series> findByNumeroSerieAndEstado(String numeroSerie, String estado);
 
     // Tu consulta de eliminación corregida para VS Code
@@ -30,4 +26,7 @@ public interface SeriesRepository extends JpaRepository<Series, Integer> {
 
     // Cuenta las series filtrando por su estado exacto
     long countByEstado(String estado);
+
+    // 🔥 NUEVO: Cuenta ABSOLUTAMENTE TODAS las series que han existido para un producto (Para el correlativo)
+    long countByIdProducto(int idProducto);
 }
