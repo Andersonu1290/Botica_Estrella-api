@@ -13,12 +13,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 public class ServicioUsuarioTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private ServicioUsuario servicioUsuario;
@@ -27,9 +31,10 @@ public class ServicioUsuarioTest {
     void testValidarAcceso_success() {
         Usuario u = new Usuario();
         u.setUsername("juan");
-        u.setPassword("pwd");
+        u.setPassword("hash-pwd");
 
-        when(usuarioRepository.findByUsernameAndPassword("juan", "pwd")).thenReturn(Optional.of(u));
+        when(usuarioRepository.findByUsername("juan")).thenReturn(Optional.of(u));
+        when(passwordEncoder.matches("pwd", "hash-pwd")).thenReturn(true);
 
         Usuario res = servicioUsuario.validarAcceso("juan", "pwd");
         assertNotNull(res);
@@ -38,7 +43,7 @@ public class ServicioUsuarioTest {
 
     @Test
     void testValidarAcceso_invalid_returnsNull() {
-        when(usuarioRepository.findByUsernameAndPassword("x", "y")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByUsername("x")).thenReturn(Optional.empty());
         assertNull(servicioUsuario.validarAcceso("x", "y"));
     }
 

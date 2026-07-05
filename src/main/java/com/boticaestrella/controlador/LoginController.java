@@ -1,5 +1,6 @@
 package com.boticaestrella.controlador;
 
+import com.boticaestrella.dto.LoginRequestDTO;
 import com.boticaestrella.modelo.Usuario;
 import com.boticaestrella.servicio.ServicioUsuario;
 import com.boticaestrella.config.JwtUtil;
@@ -29,9 +30,11 @@ public class LoginController {
      * Recibe un JSON con las credenciales y responde con los datos del usuario logueado.
      */
     @PostMapping("/login")
-    public ResponseEntity<?> ingresar(@RequestBody Map<String, String> credentials) {
-        String username = credentials.get("username");
-        String password = credentials.get("password");
+    public ResponseEntity<?> ingresar(@RequestBody LoginRequestDTO credentials) {
+        
+        // Extraemos los datos directamente de tu nuevo DTO
+        String username = credentials.username();
+        String password = credentials.password();
 
         // Validamos que los parámetros no vengan vacíos en la petición REST
         if (username == null || password == null) {

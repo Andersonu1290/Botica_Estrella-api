@@ -36,7 +36,6 @@ public class ReporteControllerTest {
         when(servicioReporte.obtenerIngresosTotales()).thenReturn(100.0);
         when(servicioReporte.obtenerTopProductos()).thenReturn(new String[]{});
         when(servicioReporte.obtenerStockCategoria()).thenReturn(new String[]{});
-        when(servicioVenta.obtenerHistorialVentas()).thenReturn(List.of(new Venta()));
 
         ResponseEntity<ReporteDashboardDTO> resp = reporteController.obtenerDashboardCompleto();
         assertEquals(200, resp.getStatusCode().value());

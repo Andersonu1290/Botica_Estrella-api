@@ -10,6 +10,7 @@ import java.util.Map;
 
 import com.boticaestrella.repository.ProductoRepository;
 import com.boticaestrella.repository.SeriesRepository;
+import com.boticaestrella.repository.VentaClienteRepository;
 import com.boticaestrella.repository.VentaRepository;
 
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ public class ServicioReporteTest {
     private VentaRepository ventaRepository;
 
     @Mock
+    private VentaClienteRepository ventaClienteRepository;
+
+    @Mock
     private SeriesRepository seriesRepository;
 
     @InjectMocks
@@ -37,13 +41,14 @@ public class ServicioReporteTest {
     void testGenerarResumenEjecutivo_returnsKPIs() {
         when(productoRepository.obtenerTotalUnidadesStock()).thenReturn(100);
         when(ventaRepository.contarVentasCompletadas()).thenReturn(25);
+        when(ventaClienteRepository.contarVentasCompletadasWeb()).thenReturn(5);
         when(seriesRepository.countByEstado("MERMA")).thenReturn(3L);
         when(productoRepository.contarStockCritico()).thenReturn(7);
 
         Map<String, Integer> kpis = servicioReporte.generarResumenEjecutivo();
 
         assertEquals(100, kpis.get("totalStock"));
-        assertEquals(25, kpis.get("totalVentas"));
+        assertEquals(30, kpis.get("totalVentas"));
         assertEquals(3, kpis.get("totalMermas"));
         assertEquals(7, kpis.get("stockCritico"));
     }
@@ -51,8 +56,9 @@ public class ServicioReporteTest {
     @Test
     void testObtenerIngresosTotales_callsRepository() {
         when(ventaRepository.obtenerTotalIngresos()).thenReturn(1234.56);
+        when(ventaClienteRepository.obtenerTotalIngresosWeb()).thenReturn(100.44);
         double ingreso = servicioReporte.obtenerIngresosTotales();
-        assertEquals(1234.56, ingreso);
+        assertEquals(1335.0, ingreso);
     }
 
 }

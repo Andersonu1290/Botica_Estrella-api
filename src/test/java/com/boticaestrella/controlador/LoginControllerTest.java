@@ -5,7 +5,9 @@ import static org.mockito.Mockito.*;
 
 import java.util.Map;
 
+import com.boticaestrella.dto.LoginRequestDTO; // <-- Agregamos la importación del DTO
 import com.boticaestrella.modelo.Usuario;
+import com.boticaestrella.config.JwtUtil;
 import com.boticaestrella.servicio.ServicioUsuario;
 
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,9 @@ public class LoginControllerTest {
     @Mock
     private ServicioUsuario servicioUsuario;
 
+    @Mock
+    private JwtUtil jwtUtil;
+
     @InjectMocks
     private LoginController loginController;
 
@@ -30,24 +35,40 @@ public class LoginControllerTest {
         u.setUsername("ana");
         u.setPassword("secret");
         when(servicioUsuario.validarAcceso("ana", "secret")).thenReturn(u);
+        when(jwtUtil.generateToken("ana", null)).thenReturn("token-demo");
 
-        ResponseEntity<?> resp = loginController.ingresar(Map.of("username", "ana", "password", "secret"));
+        // Usamos el DTO en lugar del Map
+        LoginRequestDTO request = new LoginRequestDTO("ana", "secret");
+        ResponseEntity<?> resp = loginController.ingresar(request);
+        
         assertEquals(200, resp.getStatusCode().value());
-        Usuario body = (Usuario) resp.getBody();
-        assertNull(body.getPassword());
-        assertEquals("ana", body.getUsername());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) resp.getBody();
+        assertNotNull(body);
+        assertEquals("token-demo", body.get("token"));
+
+        Usuario bodyUsuario = (Usuario) body.get("usuario");
+        assertNull(bodyUsuario.getPassword());
+        assertEquals("ana", bodyUsuario.getUsername());
     }
 
     @Test
     void ingresar_missingParams_returnsBadRequest() {
-        ResponseEntity<?> resp = loginController.ingresar(Map.of("username", "x"));
+        // Simulamos que el password no se envió (viene como null)
+        LoginRequestDTO request = new LoginRequestDTO("x", null);
+        ResponseEntity<?> resp = loginController.ingresar(request);
+        
         assertEquals(400, resp.getStatusCode().value());
     }
 
     @Test
     void ingresar_invalidCredentials_returnsUnauthorized() {
         when(servicioUsuario.validarAcceso("u", "p")).thenReturn(null);
-        ResponseEntity<?> resp = loginController.ingresar(Map.of("username", "u", "password", "p"));
+        
+        // Usamos el DTO
+        LoginRequestDTO request = new LoginRequestDTO("u", "p");
+        ResponseEntity<?> resp = loginController.ingresar(request);
+        
         assertEquals(401, resp.getStatusCode().value());
     }
 
@@ -57,4 +78,3 @@ public class LoginControllerTest {
         assertEquals(200, resp.getStatusCode().value());
     }
 }
-
