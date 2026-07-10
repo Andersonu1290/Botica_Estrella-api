@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -204,12 +205,17 @@ public class ServicioVentaCliente {
     public List<PedidoClienteResponseDTO> obtenerPedidosCliente(int idUsuario) {
         List<VentaCliente> ventas = ventaClienteRepository.findByIdUsuario(idUsuario);
 
+        // 🔥 OPTIMIZACIÓN: Traemos los productos a la RAM una sola vez
+        Map<Integer, String> mapaProductos = productoRepository.findAll().stream()
+                .collect(Collectors.toMap(Producto::getIdProducto, Producto::getNombre));
+
         return ventas.stream().map(venta -> {
+            // Trae los detalles del pedido específico
             List<DetalleVentaCliente> detalles = detalleVentaClienteRepository.findByIdVentaCliente(venta.getIdVentaCliente());
 
             List<DetalleVentaClienteDTO> detallesDTO = detalles.stream().map(d -> {
-                Optional<Producto> producto = productoRepository.findById(d.getIdProducto());
-                String nombreProducto = producto.map(Producto::getNombre).orElse("Producto");
+                // 🔥 OPTIMIZACIÓN: Ya no consulta a la BD por cada ítem, lo busca instantáneamente en el mapa
+                String nombreProducto = mapaProductos.getOrDefault(d.getIdProducto(), "Producto");
                 return new DetalleVentaClienteDTO(
                         d.getIdDetalle(), d.getIdProducto(), nombreProducto, d.getCantidad(),
                         d.getPrecioUnitario(), d.getSubtotal(), d.getDescuento()
@@ -329,18 +335,50 @@ public class ServicioVentaCliente {
         }
     }
 
+    /**
+     * OBTENER TODOS LOS PEDIDOS (OPTIMIZADO PARA EVITAR EL PROBLEMA N+1)
+     */
     public List<PedidoClienteResponseDTO> obtenerTodosLosPedidos() {
+        // 1. Traemos cabeceras ordenadas (Consulta 1)
         List<VentaCliente> ventas = ventaClienteRepository.findAll();
-        
-        // Ordenamos para que los pedidos más recientes salgan primero
         ventas.sort((a, b) -> b.getFechaPedido().compareTo(a.getFechaPedido()));
 
+        // 2. Traemos TODOS los productos a la RAM para acceso instantáneo (Consulta 2)
+        Map<Integer, String> mapaProductos = productoRepository.findAll().stream()
+                .collect(Collectors.toMap(Producto::getIdProducto, Producto::getNombre));
+
+        // 3. Traemos TODOS los detalles y los agrupamos por ID de Venta (Consulta 3)
+        Map<Integer, List<DetalleVentaCliente>> mapaDetalles = detalleVentaClienteRepository.findAll().stream()
+                .collect(Collectors.groupingBy(DetalleVentaCliente::getIdVentaCliente));
+
+        // 4. Ensamblamos todo en memoria (Sin tocar la BD en el bucle)
         return ventas.stream().map(venta -> {
-            try {
-                return obtenerPedidoPorId(venta.getIdVentaCliente());
-            } catch (Exception e) {
-                return null;
-            }
-        }).filter(p -> p != null).collect(Collectors.toList());
+            
+            // Obtenemos los detalles de esta venta específica desde nuestro mapa en RAM
+            List<DetalleVentaCliente> detallesVenta = mapaDetalles.getOrDefault(venta.getIdVentaCliente(), new ArrayList<>());
+
+            List<DetalleVentaClienteDTO> detallesDTO = detallesVenta.stream().map(d -> {
+                // Buscamos el nombre del producto en nuestro mapa en RAM
+                String nombreProducto = mapaProductos.getOrDefault(d.getIdProducto(), "Producto Desconocido");
+                
+                return new DetalleVentaClienteDTO(
+                        d.getIdDetalle(), d.getIdProducto(), nombreProducto, d.getCantidad(),
+                        d.getPrecioUnitario(), d.getSubtotal(), d.getDescuento()
+                );
+            }).collect(Collectors.toList());
+
+            PedidoClienteResponseDTO response = new PedidoClienteResponseDTO(
+                    venta.getIdVentaCliente(), venta.getNroPedido(), venta.getEstado(),
+                    venta.getFechaPedido(), venta.getFechaEntregaEstimada(), venta.getSubtotal(),
+                    venta.getCostoEnvio(), venta.getTotal(), venta.getNombreCliente(),
+                    venta.getEmailCliente(), venta.getTelefonoCliente(), venta.getDireccionEnvio(),
+                    venta.getCiudad(), venta.getDepartamento(), venta.getTipoEnvio(),
+                    venta.getNumeroSeguimiento(), venta.getTipoPago(), venta.getTipoTarjeta(),
+                    venta.getUltimos4Digitos()
+            );
+            response.setDetalles(detallesDTO);
+            return response;
+            
+        }).collect(Collectors.toList());
     }
 }
