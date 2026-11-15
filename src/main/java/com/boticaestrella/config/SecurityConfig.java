@@ -68,6 +68,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/pedidos/**").authenticated()
                 .requestMatchers("/api/v1/perfil/**").authenticated()
 
+                // Rutas privadas del cliente para SmartCare
+                .requestMatchers("/api/v1/carrito/**").authenticated()
+                .requestMatchers("/api/v1/pedidos/**").authenticated()
+                .requestMatchers("/api/v1/perfil/**").authenticated()
+                // -> AGREGA ESTA LÍNEA <-
+                .requestMatchers("/api/v1/smartcare/**").authenticated()
+
                 // Admin
                 .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "ALMACEN")
                 .requestMatchers("/api/v1/usuarios/registrar").hasAnyRole("ADMIN", "ALMACEN")
