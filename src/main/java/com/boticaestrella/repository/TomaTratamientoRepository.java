@@ -20,12 +20,17 @@ public interface TomaTratamientoRepository extends JpaRepository<TomaTratamiento
     // Cuenta el total de tomas de un tratamiento
     long countByIdTratamiento(int idTratamiento);
 
-    // Calcula TODO el medicamento que ya ha sido asignado a un tratamiento (Tomado + Pendiente)
-    // Calcula TODO el medicamento que ya ha sido asignado de forma segura
+    // Calcula la medicina que YA SE CONSUMIÓ (Se tomó físicamente)
     @Query(value = "SELECT COALESCE(SUM(ts.cantidad_por_toma), 0) FROM tomas_tratamiento t " +
                    "INNER JOIN tratamientos_smartcare ts ON t.id_tratamiento = ts.id_tratamiento " +
-                   "WHERE ts.id_usuario = :idUsuario AND ts.id_producto = :idProducto", 
+                   "WHERE ts.id_usuario = :idUsuario AND ts.id_producto = :idProducto AND t.estado = 'TOMADO'", 
            nativeQuery = true)
-    Object sumCantidadAsignadaByUsuarioAndProducto(@Param("idUsuario") int idUsuario, 
-                                                   @Param("idProducto") int idProducto);
+    Object sumCantidadConsumidaByUsuarioAndProducto(@Param("idUsuario") int idUsuario, @Param("idProducto") int idProducto);
+
+    // Calcula la medicina que está RESERVADA (Para alarmas futuras)
+    @Query(value = "SELECT COALESCE(SUM(ts.cantidad_por_toma), 0) FROM tomas_tratamiento t " +
+                   "INNER JOIN tratamientos_smartcare ts ON t.id_tratamiento = ts.id_tratamiento " +
+                   "WHERE ts.id_usuario = :idUsuario AND ts.id_producto = :idProducto AND t.estado = 'PENDIENTE'", 
+           nativeQuery = true)
+    Object sumCantidadReservadaByUsuarioAndProducto(@Param("idUsuario") int idUsuario, @Param("idProducto") int idProducto);
 }

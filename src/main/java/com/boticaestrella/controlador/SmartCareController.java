@@ -130,4 +130,15 @@ public class SmartCareController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    // Endpoint 6: Notificaciones en vivo
+    @GetMapping("/notificaciones/{idUsuario}")
+    public ResponseEntity<?> obtenerNotificaciones(@PathVariable int idUsuario) {
+        try {
+            List<Map<String, Object>> notificaciones = smartCareService.obtenerNotificacionesPaciente(idUsuario);
+            return ResponseEntity.ok(notificaciones);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
 }

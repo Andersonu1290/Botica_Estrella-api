@@ -221,6 +221,19 @@ public class SmartCareService {
             throw new Exception("Seguridad Clínica: El paciente debe confirmar manualmente que los datos extraídos coinciden con la receta física.");
         }
 
+        // =========================================================
+        // NUEVO: BLOQUEO MATEMÁTICO POR FALTA DE STOCK FÍSICO
+        // =========================================================
+        if (tratamiento.getIdProducto() != null) {
+            int stockLibre = calcularStockRealComprado(tratamiento.getIdUsuario(), tratamiento.getIdProducto());
+            
+            if (tratamiento.getCantidadInicial() > stockLibre) {
+                throw new Exception("STOCK INSUFICIENTE: Intentas registrar un tratamiento de " 
+                        + tratamiento.getCantidadInicial() + " unidades, pero solo tienes " 
+                        + stockLibre + " pastillas libres en tu Botiquín. ¡Debes comprar más antes de iniciar este tratamiento!");
+            }
+        }
+
         // Prevención de división por cero
         int cantidadToma = Math.max(1, tratamiento.getCantidadPorToma());
         int frecuencia = Math.max(1, tratamiento.getFrecuenciaHoras());
@@ -393,7 +406,7 @@ public class SmartCareService {
         Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProducto);
         int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
 
-        Object asignadoObj = tomaTratamientoRepository.sumCantidadAsignadaByUsuarioAndProducto(idUsuario, idProducto);
+        Object asignadoObj = tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProducto);
         int totalAsignado = (asignadoObj != null) ? ((Number) asignadoObj).intValue() : 0;
 
         return totalComprado - totalAsignado;
@@ -437,22 +450,28 @@ public class SmartCareService {
             Producto p = productoRepository.findById(idProd).orElse(null);
             
             if (p != null) {
-                // Obtenemos los valores individuales de forma segura
+                // 1. Total histórico comprado
                 Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProd);
                 int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
 
-                Object asignadoObj = tomaTratamientoRepository.sumCantidadAsignadaByUsuarioAndProducto(idUsuario, idProd);
-                int totalAsignado = (asignadoObj != null) ? ((Number) asignadoObj).intValue() : 0;
+                // 2. Histórico consumido (Ya digerido)
+                Object consumidoObj = tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProd);
+                int totalConsumido = (consumidoObj != null) ? ((Number) consumidoObj).intValue() : 0;
 
-                int stockLibre = totalComprado - totalAsignado;
+                // 3. Reservado para el futuro (En el pastillero)
+                Object reservadoObj = tomaTratamientoRepository.sumCantidadReservadaByUsuarioAndProducto(idUsuario, idProd);
+                int totalReservado = (reservadoObj != null) ? ((Number) reservadoObj).intValue() : 0;
+
+                // 4. Stock 100% Libre
+                int stockLibre = totalComprado - (totalConsumido + totalReservado);
                 
-                // Quitamos el 'if (stockLibre > 0)' para que SIEMPRE envíe el producto
                 Map<String, Object> item = new HashMap<>();
                 item.put("idProducto", p.getIdProducto());
                 item.put("codigoSKU", p.getCodigoSKU());
                 item.put("nombre", p.getNombre());
                 item.put("totalComprado", totalComprado);
-                item.put("totalAsignado", totalAsignado);
+                item.put("totalConsumido", totalConsumido); // <--- NUEVO
+                item.put("totalReservado", totalReservado); // <--- NUEVO
                 item.put("stockLibre", stockLibre);
                 
                 botiquin.add(item);
@@ -460,5 +479,101 @@ public class SmartCareService {
         }
         
         return botiquin;
+    }
+
+    // =====================================================================
+    // SISTEMA DE NOTIFICACIONES CON MATEMÁTICA AVANZADA (In-App)
+    // =====================================================================
+    public List<Map<String, Object>> obtenerNotificacionesPaciente(int idUsuario) {
+        List<Map<String, Object>> notificaciones = new ArrayList<>();
+        
+        // Obtenemos solo los tratamientos ACTIVOS
+        List<TratamientoSmartCare> tratamientos = smartCareRepository.findByIdUsuario(idUsuario)
+                .stream().filter(t -> "ACTIVO".equals(t.getEstado())).toList();
+        
+        LocalDateTime ahora = LocalDateTime.now();
+
+        for (TratamientoSmartCare t : tratamientos) {
+            
+            // ---------------------------------------------------------
+            // LÓGICA 1: MATEMÁTICA DE PROYECCIÓN DE INVENTARIO
+            // ---------------------------------------------------------
+            // Calculamos exactamente cuántas unidades consume al día
+            double tomasPorDia = 24.0 / (t.getFrecuenciaHoras() > 0 ? t.getFrecuenciaHoras() : 24);
+            double consumoDiario = tomasPorDia * t.getCantidadPorToma();
+            
+            // Proyección exacta de días de cobertura restantes con decimales
+            double diasCobertura = t.getStockActual() / consumoDiario;
+
+            if (t.getStockActual() == 0) {
+                Map<String, Object> notifAgotado = new HashMap<>();
+                notifAgotado.put("id", "AGOTADO-" + t.getIdTratamiento());
+                notifAgotado.put("tipo", "AGOTADO");
+                notifAgotado.put("titulo", "Tratamiento interrumpido 🚨");
+                notifAgotado.put("mensaje", "Te has quedado sin " + t.getNombreMedicamento() + ". Repón tu inventario de inmediato para no perder efectividad.");
+                notifAgotado.put("fecha", ahora);
+                notificaciones.add(notifAgotado);
+            } else if (diasCobertura <= 3.0) {
+                Map<String, Object> notifStock = new HashMap<>();
+                notifStock.put("id", "STOCK-" + t.getIdTratamiento());
+                notifStock.put("tipo", "ALERTA_STOCK");
+                notifStock.put("titulo", "Alerta de Reposición 📦");
+                int diasEnteros = (int) Math.floor(diasCobertura);
+                notifStock.put("mensaje", "Solo te quedan " + t.getStockActual() + " unidades de " + t.getNombreMedicamento() + " (cobertura estimada para " + diasEnteros + " días).");
+                notifStock.put("fecha", ahora);
+                notificaciones.add(notifStock);
+            }
+
+            // ---------------------------------------------------------
+            // LÓGICA 2: MATEMÁTICA DE INTERVALOS DE TIEMPO (TOMAS)
+            // ---------------------------------------------------------
+            List<TomaTratamiento> tomas = tomaTratamientoRepository.findByIdTratamientoOrderByFechaHoraProgramadaAsc(t.getIdTratamiento());
+            
+            for (TomaTratamiento toma : tomas) {
+                if ("PENDIENTE".equals(toma.getEstado())) {
+                    LocalDateTime programada = toma.getFechaHoraProgramada();
+                    
+                    // Calculamos la diferencia exacta en minutos entre AHORA y la HORA PROGRAMADA
+                    long minutosDiferencia = java.time.Duration.between(ahora, programada).toMinutes();
+
+                    if (minutosDiferencia < 0) {
+                        // MATEMÁTICA: Si la diferencia es negativa, la hora ya pasó (ATRASO)
+                        long minutosAtraso = Math.abs(minutosDiferencia);
+                        long horasAtraso = minutosAtraso / 60;
+                        long minRestantes = minutosAtraso % 60;
+                        String tiempoStr = horasAtraso > 0 ? horasAtraso + "h " + minRestantes + "m" : minRestantes + " minutos";
+
+                        Map<String, Object> notifAtraso = new HashMap<>();
+                        notifAtraso.put("id", "ATRASO-" + toma.getIdToma());
+                        notifAtraso.put("tipo", "DOSIS_ATRASADA");
+                        notifAtraso.put("titulo", "Dosis Atrasada ⚠️");
+                        notifAtraso.put("mensaje", "Debiste tomar " + t.getNombreMedicamento() + " hace " + tiempoStr + ". Regístrala si ya la tomaste.");
+                        notifAtraso.put("fecha", programada);
+                        notificaciones.add(notifAtraso);
+                        
+                    } else if (minutosDiferencia <= 120) { 
+                        // MATEMÁTICA: Si la diferencia es positiva pero menor a 120 min, falta poco (CUENTA REGRESIVA)
+                        long horasFaltan = minutosDiferencia / 60;
+                        long minFaltan = minutosDiferencia % 60;
+                        String tiempoStr = horasFaltan > 0 ? horasFaltan + "h " + minFaltan + "m" : minFaltan + " minutos";
+
+                        Map<String, Object> notifProxima = new HashMap<>();
+                        notifProxima.put("id", "PROXIMA-" + toma.getIdToma());
+                        notifProxima.put("tipo", "DOSIS_PROXIMA");
+                        notifProxima.put("titulo", "Próxima dosis en " + tiempoStr + " ⏱️");
+                        notifProxima.put("mensaje", "Prepárate para tomar " + t.getCantidadPorToma() + " " + t.getUnidadMedida() + " de " + t.getNombreMedicamento() + ".");
+                        notifProxima.put("fecha", programada);
+                        notificaciones.add(notifProxima);
+                    }
+                    // IMPORTANTE: Un 'break' porque el paciente solo se preocupa por la dosis más inminente, no por las de mañana
+                    break; 
+                }
+            }
+        }
+        
+        // Ordenamos las notificaciones: las más recientes u urgentes primero
+        notificaciones.sort((n1, n2) -> ((LocalDateTime) n2.get("fecha")).compareTo((LocalDateTime) n1.get("fecha")));
+        
+        return notificaciones;
     }
 }
