@@ -106,4 +106,28 @@ public class SmartCareController {
             return ResponseEntity.ok(0);
         }
     }
+
+    @PutMapping("/tratamientos/{idTratamiento}/finalizar")
+    public ResponseEntity<?> finalizarTratamiento(@PathVariable int idTratamiento, @RequestParam int idUsuario) {
+        try {
+            TratamientoSmartCare actualizado = smartCareService.finalizarTratamiento(idTratamiento, idUsuario);
+            return ResponseEntity.ok(actualizado);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/botiquin/{idUsuario}")
+    public ResponseEntity<?> obtenerBotiquin(@PathVariable int idUsuario) {
+        try {
+            List<Map<String, Object>> botiquin =
+                    smartCareService.obtenerBotiquinPaciente(idUsuario);
+
+            return ResponseEntity.ok(botiquin);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
 }

@@ -1,20 +1,5 @@
 package com.boticaestrella.servicio;
 
-import com.boticaestrella.dto.OcrResponseDTO;
-import com.boticaestrella.modelo.TomaTratamiento;
-import com.boticaestrella.modelo.TratamientoSmartCare;
-import com.boticaestrella.repository.DetalleVentaClienteRepository;
-import com.boticaestrella.repository.TomaTratamientoRepository;
-import com.boticaestrella.repository.TratamientoSmartCareRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -26,7 +11,26 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.boticaestrella.dto.OcrResponseDTO;
+import com.boticaestrella.modelo.Producto;
+import com.boticaestrella.modelo.TomaTratamiento;
+import com.boticaestrella.modelo.TratamientoSmartCare;
+import com.boticaestrella.repository.DetalleVentaClienteRepository;
+import com.boticaestrella.repository.ProductoRepository;
+import com.boticaestrella.repository.TomaTratamientoRepository;
+import com.boticaestrella.repository.TratamientoSmartCareRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class SmartCareService {
@@ -261,13 +265,15 @@ public class SmartCareService {
     }
 
     public List<TratamientoSmartCare> listarHistorialPaciente(int idUsuario) {
-        List<TratamientoSmartCare> tratamientos = smartCareRepository.findByIdUsuarioAndEstado(idUsuario, "ACTIVO");
+        // AHORA trae Activos y Finalizados para que Vue.js arme las pestañas
+        List<TratamientoSmartCare> tratamientos = smartCareRepository.findByIdUsuario(idUsuario);
         LocalDate hoy = LocalDate.now();
 
         for (TratamientoSmartCare t : tratamientos) {
             long diasRestantesCalculados = ChronoUnit.DAYS.between(hoy, t.getFechaAgotamiento());
             t.setDiasRestantes((int) Math.max(0, diasRestantesCalculados));
-            t.setAlertaCritica(diasRestantesCalculados <= 3);
+            // Solo es crítico si aún sigue ACTIVO
+            t.setAlertaCritica(diasRestantesCalculados <= 3 && "ACTIVO".equals(t.getEstado()));
         }
 
         return tratamientos;
@@ -301,22 +307,14 @@ public class SmartCareService {
             throw new Exception("Acceso denegado.");
         }
 
-        // Si la dosis requerida es mayor a lo que le queda en su botiquín, lanzamos alerta
         if (tratamiento.getStockActual() < tratamiento.getCantidadPorToma()) {
             throw new Exception("No tienes suficiente stock en tu botiquín para registrar esta toma. ¡Compra más!");
         }
 
-        // Restamos el inventario personal del paciente
+        // 1. Restamos la dosis que acaba de consumir del inventario del tratamiento
         tratamiento.setStockActual(tratamiento.getStockActual() - tratamiento.getCantidadPorToma());
 
-        // Recalculamos la nueva fecha de caducidad basada en el stock restante
-        double tomasPorDia = 24.0 / (tratamiento.getFrecuenciaHoras() > 0 ? tratamiento.getFrecuenciaHoras() : 24);
-        int diasDuracionRestante = (int) (tratamiento.getStockActual() / (tomasPorDia * tratamiento.getCantidadPorToma()));
-        
-        tratamiento.setFechaAgotamiento(LocalDate.now().plusDays(diasDuracionRestante));
-        tratamiento.setDiasRestantes(diasDuracionRestante);
-
-        // Buscamos la alarma más antigua pendiente y la marcamos como "TOMADO"
+        // 2. Buscamos la alarma (PENDIENTE) más antigua y la marcamos como "TOMADO"
         List<TomaTratamiento> tomas = tomaTratamientoRepository.findByIdTratamientoOrderByFechaHoraProgramadaAsc(idTratamiento);
         for (TomaTratamiento toma : tomas) {
             if ("PENDIENTE".equals(toma.getEstado())) {
@@ -325,6 +323,26 @@ public class SmartCareService {
                 tomaTratamientoRepository.save(toma);
                 break; // Solo descontamos una toma a la vez
             }
+        }
+
+        // 3. MAGIA DE AUTO-FINALIZACIÓN: ¿Le alcanza para otra toma?
+        if (tratamiento.getStockActual() < tratamiento.getCantidadPorToma()) {
+            // No le alcanza. El tratamiento se acabó oficialmente.
+            tratamiento.setEstado("FINALIZADO");
+            tratamiento.setDiasRestantes(0);
+            
+            // Limpiamos cualquier alarma pendiente restante en la BD para evitar basura
+            for (TomaTratamiento toma : tomas) {
+                if ("PENDIENTE".equals(toma.getEstado())) {
+                    tomaTratamientoRepository.delete(toma);
+                }
+            }
+        } else {
+            // 4. Si aún le queda medicina, recalculamos los días restantes de forma normal
+            double tomasPorDia = 24.0 / (tratamiento.getFrecuenciaHoras() > 0 ? tratamiento.getFrecuenciaHoras() : 24);
+            int diasDuracionRestante = (int) (tratamiento.getStockActual() / (tomasPorDia * tratamiento.getCantidadPorToma()));
+            tratamiento.setFechaAgotamiento(LocalDate.now().plusDays(diasDuracionRestante));
+            tratamiento.setDiasRestantes(diasDuracionRestante);
         }
 
         return smartCareRepository.save(tratamiento);
@@ -359,23 +377,88 @@ public class SmartCareService {
     // =====================================================================
     // BOTIQUÍN VIRTUAL (Stock real comprado por el paciente)
     // =====================================================================
+
     @Autowired
     private DetalleVentaClienteRepository detalleVentaRepository; 
-    // Asegúrate de tener inyectado el repositorio de los detalles de venta
+
+    @Autowired
+    private ProductoRepository productoRepository;
 
     /**
      * Calcula cuántas unidades reales tiene el paciente en su "Botiquín Virtual".
      * Lógica: Suma total de unidades compradas y entregadas - Unidades ya asignadas/consumidas en el tratamiento actual.
      */
     public int calcularStockRealComprado(int idUsuario, int idProducto) {
-        // 1. Obtener todas las compras VÁLIDAS de este usuario para este producto
-        Integer totalComprado = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProducto);
-        if (totalComprado == null) totalComprado = 0;
+        // Obtenemos el dato crudo (Object) y lo convertimos a entero de forma segura
+        Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProducto);
+        int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
 
-        // 2. Obtener cuánto ya se ha consumido históricamente
-        Integer totalConsumido = tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProducto, "TOMADO");
-        if (totalConsumido == null) totalConsumido = 0;
+        Object asignadoObj = tomaTratamientoRepository.sumCantidadAsignadaByUsuarioAndProducto(idUsuario, idProducto);
+        int totalAsignado = (asignadoObj != null) ? ((Number) asignadoObj).intValue() : 0;
 
-        return totalComprado - totalConsumido;
+        return totalComprado - totalAsignado;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public TratamientoSmartCare finalizarTratamiento(int idTratamiento, int idUsuario) throws Exception {
+        TratamientoSmartCare tratamiento = smartCareRepository.findById(idTratamiento)
+                .orElseThrow(() -> new Exception("El tratamiento no existe."));
+
+        if (tratamiento.getIdUsuario() != idUsuario) {
+            throw new Exception("Acceso denegado.");
+        }
+
+        tratamiento.setEstado("FINALIZADO");
+        
+        // MAGIA DE INVENTARIO: Si finaliza el tratamiento, borramos las alarmas PENDIENTES.
+        // Esto "libera" automáticamente las pastillas sobrantes y las devuelve al Botiquín Virtual.
+        List<TomaTratamiento> tomas = tomaTratamientoRepository.findByIdTratamientoOrderByFechaHoraProgramadaAsc(idTratamiento);
+        for (TomaTratamiento toma : tomas) {
+            if ("PENDIENTE".equals(toma.getEstado())) {
+                tomaTratamientoRepository.delete(toma);
+            }
+        }
+
+        return smartCareRepository.save(tratamiento);
+    }
+
+    public List<Map<String, Object>> obtenerBotiquinPaciente(int idUsuario) {
+        List<Object> idsProductos = detalleVentaRepository.findProductosCompradosByUsuario(idUsuario);
+        List<Map<String, Object>> botiquin = new ArrayList<>();
+        
+        if (idsProductos == null || idsProductos.isEmpty()) {
+            return botiquin;
+        } 
+        
+        for (Object obj : idsProductos) {
+            if (obj == null) continue;
+            
+            int idProd = ((Number) obj).intValue();
+            Producto p = productoRepository.findById(idProd).orElse(null);
+            
+            if (p != null) {
+                // Obtenemos los valores individuales de forma segura
+                Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProd);
+                int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
+
+                Object asignadoObj = tomaTratamientoRepository.sumCantidadAsignadaByUsuarioAndProducto(idUsuario, idProd);
+                int totalAsignado = (asignadoObj != null) ? ((Number) asignadoObj).intValue() : 0;
+
+                int stockLibre = totalComprado - totalAsignado;
+                
+                // Quitamos el 'if (stockLibre > 0)' para que SIEMPRE envíe el producto
+                Map<String, Object> item = new HashMap<>();
+                item.put("idProducto", p.getIdProducto());
+                item.put("codigoSKU", p.getCodigoSKU());
+                item.put("nombre", p.getNombre());
+                item.put("totalComprado", totalComprado);
+                item.put("totalAsignado", totalAsignado);
+                item.put("stockLibre", stockLibre);
+                
+                botiquin.add(item);
+            }
+        }
+        
+        return botiquin;
     }
 }

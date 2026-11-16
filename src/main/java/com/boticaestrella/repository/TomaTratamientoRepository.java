@@ -20,12 +20,12 @@ public interface TomaTratamientoRepository extends JpaRepository<TomaTratamiento
     // Cuenta el total de tomas de un tratamiento
     long countByIdTratamiento(int idTratamiento);
 
-    // Calcula cuántas unidades de ese producto ya se ha tomado históricamente
+    // Calcula TODO el medicamento que ya ha sido asignado a un tratamiento (Tomado + Pendiente)
+    // Calcula TODO el medicamento que ya ha sido asignado de forma segura
     @Query(value = "SELECT COALESCE(SUM(ts.cantidad_por_toma), 0) FROM tomas_tratamiento t " +
                    "INNER JOIN tratamientos_smartcare ts ON t.id_tratamiento = ts.id_tratamiento " +
-                   "WHERE ts.id_usuario = :idUsuario AND ts.id_producto = :idProducto AND t.estado = :estado", 
+                   "WHERE ts.id_usuario = :idUsuario AND ts.id_producto = :idProducto", 
            nativeQuery = true)
-    Integer sumCantidadConsumidaByUsuarioAndProducto(@Param("idUsuario") int idUsuario, 
-                                                     @Param("idProducto") int idProducto, 
-                                                     @Param("estado") String estado);
+    Object sumCantidadAsignadaByUsuarioAndProducto(@Param("idUsuario") int idUsuario, 
+                                                   @Param("idProducto") int idProducto);
 }

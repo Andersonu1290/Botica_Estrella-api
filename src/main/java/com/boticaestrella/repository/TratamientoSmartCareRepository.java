@@ -8,6 +8,6 @@ import java.util.List;
 @Repository
 public interface TratamientoSmartCareRepository extends JpaRepository<TratamientoSmartCare, Integer> {
     
-    // Lista los tratamientos de un paciente específico filtrados por su estado
-    List<TratamientoSmartCare> findByIdUsuarioAndEstado(int idUsuario, String estado);
+    // Devuelve todos los tratamientos del paciente, sin importar su estado
+    List<TratamientoSmartCare> findByIdUsuario(int idUsuario);
 }
