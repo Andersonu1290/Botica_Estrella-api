@@ -222,15 +222,21 @@ public class SmartCareService {
         }
 
         // =========================================================
-        // NUEVO: BLOQUEO MATEMÁTICO POR FALTA DE STOCK FÍSICO
+        // BLOQUEO POR STOCK COMPROMETIDO / INSUFICIENTE
         // =========================================================
         if (tratamiento.getIdProducto() != null) {
-            int stockLibre = calcularStockRealComprado(tratamiento.getIdUsuario(), tratamiento.getIdProducto());
-            
+            int stockLibre = calcularStockLibre(tratamiento.getIdUsuario(), tratamiento.getIdProducto());
+
+            if (stockLibre <= 0) {
+                throw new Exception("STOCK COMPROMETIDO: Tus unidades físicas ya están reservadas para otro "
+                        + "tratamiento activo. Debes realizar una compra para iniciar este nuevo tratamiento.");
+            }
+
             if (tratamiento.getCantidadInicial() > stockLibre) {
-                throw new Exception("STOCK INSUFICIENTE: Intentas registrar un tratamiento de " 
-                        + tratamiento.getCantidadInicial() + " unidades, pero solo tienes " 
-                        + stockLibre + " pastillas libres en tu Botiquín. ¡Debes comprar más antes de iniciar este tratamiento!");
+                throw new Exception("STOCK INSUFICIENTE: Intentas registrar un tratamiento de "
+                        + tratamiento.getCantidadInicial() + " unidades, pero solo tienes "
+                        + stockLibre + " libres en tu Botiquín (el resto está reservado para otros tratamientos activos). "
+                        + "¡Debes comprar más antes de iniciar este tratamiento!");
             }
         }
 
@@ -398,18 +404,25 @@ public class SmartCareService {
     private ProductoRepository productoRepository;
 
     /**
-     * Calcula cuántas unidades reales tiene el paciente en su "Botiquín Virtual".
-     * Lógica: Suma total de unidades compradas y entregadas - Unidades ya asignadas/consumidas en el tratamiento actual.
+     * Stock realmente LIBRE = comprado - consumido - reservado (secuestrado por tomas PENDIENTES
+     * de tratamientos activos). Misma fórmula que usa el Botiquín Virtual.
      */
+    public int calcularStockLibre(int idUsuario, int idProducto) {
+        int totalComprado  = aEntero(detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProducto));
+        int totalConsumido = aEntero(tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProducto));
+        int totalReservado = aEntero(tomaTratamientoRepository.sumCantidadReservadaByUsuarioAndProducto(idUsuario, idProducto));
+
+        int stockLibre = totalComprado - (totalConsumido + totalReservado);
+        return Math.max(0, stockLibre); // evita devolver negativos
+    }
+
+    private int aEntero(Object valor) {
+        return (valor != null) ? ((Number) valor).intValue() : 0;
+    }
+
+    // Se mantiene el nombre anterior por si otro controlador/servicio lo llama
     public int calcularStockRealComprado(int idUsuario, int idProducto) {
-        // Obtenemos el dato crudo (Object) y lo convertimos a entero de forma segura
-        Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProducto);
-        int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
-
-        Object asignadoObj = tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProducto);
-        int totalAsignado = (asignadoObj != null) ? ((Number) asignadoObj).intValue() : 0;
-
-        return totalComprado - totalAsignado;
+        return calcularStockLibre(idUsuario, idProducto);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -451,27 +464,24 @@ public class SmartCareService {
             
             if (p != null) {
                 // 1. Total histórico comprado
-                Object compradoObj = detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProd);
-                int totalComprado = (compradoObj != null) ? ((Number) compradoObj).intValue() : 0;
+                int totalComprado = aEntero(detalleVentaRepository.sumCantidadByUsuarioAndProducto(idUsuario, idProd));
 
                 // 2. Histórico consumido (Ya digerido)
-                Object consumidoObj = tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProd);
-                int totalConsumido = (consumidoObj != null) ? ((Number) consumidoObj).intValue() : 0;
+                int totalConsumido = aEntero(tomaTratamientoRepository.sumCantidadConsumidaByUsuarioAndProducto(idUsuario, idProd));
 
                 // 3. Reservado para el futuro (En el pastillero)
-                Object reservadoObj = tomaTratamientoRepository.sumCantidadReservadaByUsuarioAndProducto(idUsuario, idProd);
-                int totalReservado = (reservadoObj != null) ? ((Number) reservadoObj).intValue() : 0;
+                int totalReservado = aEntero(tomaTratamientoRepository.sumCantidadReservadaByUsuarioAndProducto(idUsuario, idProd));
 
-                // 4. Stock 100% Libre
-                int stockLibre = totalComprado - (totalConsumido + totalReservado);
+                // 4. Stock 100% Libre (misma fórmula que calcularStockLibre, sin negativos)
+                int stockLibre = Math.max(0, totalComprado - (totalConsumido + totalReservado));
                 
                 Map<String, Object> item = new HashMap<>();
                 item.put("idProducto", p.getIdProducto());
                 item.put("codigoSKU", p.getCodigoSKU());
                 item.put("nombre", p.getNombre());
                 item.put("totalComprado", totalComprado);
-                item.put("totalConsumido", totalConsumido); // <--- NUEVO
-                item.put("totalReservado", totalReservado); // <--- NUEVO
+                item.put("totalConsumido", totalConsumido);
+                item.put("totalReservado", totalReservado);
                 item.put("stockLibre", stockLibre);
                 
                 botiquin.add(item);
@@ -576,4 +586,5 @@ public class SmartCareService {
         
         return notificaciones;
     }
+    
 }

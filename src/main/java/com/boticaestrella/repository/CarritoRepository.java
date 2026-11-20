@@ -3,6 +3,8 @@ package com.boticaestrella.repository;
 import com.boticaestrella.modelo.CarritoItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,4 +24,10 @@ public interface CarritoRepository extends JpaRepository<CarritoItem, Integer> {
     @Transactional
     @Modifying
     void deleteByIdUsuario(int idUsuario);
+
+    // Método para limpiar la base de datos tras la compra
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM CarritoItem c WHERE c.idUsuario = :idUsuario")
+    void vaciarCarritoPorCliente(@Param("idUsuario") int idUsuario);
 }

@@ -36,12 +36,19 @@ public class SmartCareController {
     }
 
     // Endpoint 2: Guarda los datos una vez editados y validados
+    // Si el servicio rechaza el registro (stock comprometido/insuficiente, falta de validación),
+    // se devuelve 400 Bad Request con { "error": "..." } para que Vue muestre el mensaje.
     @PostMapping("/tratamientos")
     public ResponseEntity<?> guardarTratamientoValidado(@RequestBody TratamientoSmartCare tratamiento) {
         try {
             TratamientoSmartCare guardado = smartCareService.registrarTratamiento(tratamiento);
             return ResponseEntity.status(HttpStatus.CREATED).body(guardado);
+        } catch (IllegalArgumentException e) {
+            // Regla de negocio violada (por si el servicio la lanza como IllegalArgumentException)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            // Resto de validaciones del servicio (STOCK COMPROMETIDO, STOCK INSUFICIENTE, etc.)
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", e.getMessage()));
         }
@@ -95,11 +102,12 @@ public class SmartCareController {
     // BOTIQUÍN VIRTUAL (usado por NuevoTratamiento.vue)
     // =====================================================================
 
-    // Consultar el stock real del botiquín virtual del paciente
+    // Consultar el stock LIBRE del botiquín virtual del paciente
+    // (comprado - consumido - reservado por otros tratamientos activos)
     @GetMapping("/botiquin/stock")
     public ResponseEntity<Integer> consultarStockBotiquin(@RequestParam int idUsuario, @RequestParam int idProducto) {
         try {
-            int stock = smartCareService.calcularStockRealComprado(idUsuario, idProducto);
+            int stock = smartCareService.calcularStockLibre(idUsuario, idProducto);
             return ResponseEntity.ok(stock);
         } catch (Exception e) {
             // Si hay un error, devolvemos 0 por seguridad para no bloquear el frontend

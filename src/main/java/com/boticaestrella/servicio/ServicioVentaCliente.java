@@ -27,6 +27,8 @@ import com.boticaestrella.repository.ProductoRepository;
 import com.boticaestrella.repository.VentaClienteRepository;
 // 🔥 Importamos el repositorio de las Series
 import com.boticaestrella.repository.SeriesRepository;
+// 🛒 Importamos el repositorio del Carrito
+import com.boticaestrella.repository.CarritoRepository;
 
 @Service
 public class ServicioVentaCliente {
@@ -39,19 +41,23 @@ public class ServicioVentaCliente {
     private final GestorStock gestorStock;
     // 🔥 Inyectamos el repositorio de las Series
     private final SeriesRepository seriesRepository;
+    // 🛒 Inyectamos el repositorio del Carrito
+    private final CarritoRepository carritoRepository;
 
     public ServicioVentaCliente(VentaClienteRepository ventaClienteRepository,
                                  DetalleVentaClienteRepository detalleVentaClienteRepository,
                                  ProductoRepository productoRepository,
                                  KardexRepository kardexRepository,
                                  GestorStock gestorStock,
-                                 SeriesRepository seriesRepository) { // 🔥 Añadido al constructor
+                                 SeriesRepository seriesRepository,
+                                 CarritoRepository carritoRepository) { // 🛒 Añadido al constructor
         this.ventaClienteRepository = ventaClienteRepository;
         this.detalleVentaClienteRepository = detalleVentaClienteRepository;
         this.productoRepository = productoRepository;
         this.kardexRepository = kardexRepository;
         this.gestorStock = gestorStock;
         this.seriesRepository = seriesRepository;
+        this.carritoRepository = carritoRepository;
     }
 
     /**
@@ -149,6 +155,10 @@ public class ServicioVentaCliente {
                         item.cantidad(), item.precioUnitario(), detalleGuardado.getSubtotal(), 0.0
                 ));
             }
+
+            // 🛒 4. ¡PASO NUEVO! VACIAR EL CARRITO EN LA BASE DE DATOS
+            // Va dentro de la misma transacción: si algo falla antes, el rollback deja el carrito intacto.
+            carritoRepository.vaciarCarritoPorCliente(request.idUsuario());
 
             PedidoClienteResponseDTO response = new PedidoClienteResponseDTO(
                     ventaGuardada.getIdVentaCliente(), ventaGuardada.getNroPedido(), ventaGuardada.getEstado(),
