@@ -27,6 +27,7 @@ import com.boticaestrella.repository.KardexRepository;
 import com.boticaestrella.repository.ProductoRepository;
 import com.boticaestrella.repository.SeriesRepository;
 import com.boticaestrella.repository.VentaClienteRepository;
+import com.boticaestrella.repository.CarritoRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,9 @@ class ServicioVentaClienteTest {
     @Mock
     private SeriesRepository seriesRepository;
 
+    @Mock
+    private CarritoRepository carritoRepository;
+
     @Captor
     private ArgumentCaptor<VentaCliente> ventaCaptor;
 
@@ -73,7 +77,8 @@ class ServicioVentaClienteTest {
                 productoRepository,
                 kardexRepository,
                 gestorStock,
-                seriesRepository
+                seriesRepository,
+                carritoRepository
         );
     }
 
